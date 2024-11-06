@@ -29,4 +29,9 @@ A mudança com o tunelamento mencionado na etapa anterior não trouxe resultados
 
 ![old_new](old_new.png)
 
-Pode-se notar que os embeddings antigos possuem uma aproximação maior do valor -100 no eixo das abscissas, contendo um possível cluster nessa região. Porém, os embeddings na versão com tunelamento estão mais próximos do valor -80. Ademais, é visualmente perceptível que não ocorreu uma mudança significativa na identificação de clusters entre as duas versões.
+Nota-se uma alteração no cluster 2, em que ele quase alcançava o -100 nas abscissas e ficava abaixo de 0 nas ordenadas. Porém, os embeddings na versão com tunelamento estão mais próximos do valor -80 nas abscissas e 0 nas ordenadas. Em relação ao cluster 1, ele estava entre 0 e -20 na versão original, e ficou entre -10 e 20 na nova. Ambos clusters 1 e 2 parecem ter se modificado, mas foi possível descobrir se o conteúdo/tema deles se alterou.
+
+Ademais, é visualmente perceptível que não ocorreu uma mudança significativa na identificação dos demais clusters entre as duas versões.
+
+# Etapa 3: Testando o sistema de pesquisa
+

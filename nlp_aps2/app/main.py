@@ -2,6 +2,10 @@ from fastapi import FastAPI, Query
 import os
 import uvicorn
 import pandas as pd
+from torch.nn.functional import cosine_similarity
+import torch
+from transformers import BertTokenizer, BertModel
+import torch.nn as nn
 
 class DummyModel:
     def predict(self, X):
@@ -11,10 +15,45 @@ def load_model():
     predictor = DummyModel()
     return predictor
 
+model_name = 'bert-base-uncased'
+tokenizer = BertTokenizer.from_pretrained(model_name)
+model = BertModel.from_pretrained(model_name)
+
+def get_bert_embedding(text):
+    if not isinstance(text, str) or text.strip() == "":
+        return None
+
+    inputs = tokenizer(text, return_tensors='pt', truncation=True, max_length=512, padding='max_length')
+    with torch.no_grad():
+        outputs = model(**inputs)
+    
+    last_hidden_states = outputs.last_hidden_state
+    
+    embedding = torch.mean(last_hidden_states, dim=1).squeeze()
+    return embedding
+
+class Autoencoder(nn.Module):
+    def __init__(self, embedding_dim):
+        super(Autoencoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(embedding_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64)
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, embedding_dim)
+        )
+        
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded
+
 # Carregar base de dados de vagas de emprego
 def load_data():
     try:
-        # Usar o caminho relativo para acessar o arquivo dentro da pasta dataset
         file_path = os.path.join("dataset", "dataset_preprocessed.xlsx")
         df = pd.read_excel(file_path)
         if df['content'].isnull().all():
@@ -24,10 +63,15 @@ def load_data():
         df = pd.DataFrame(columns=["title", "content"])
     return df
 
+df = load_data()
+embedding_dim = 768  # Dimensão dos embeddings BERT
+autoencoder = Autoencoder(embedding_dim)
+
+# Carregar os embeddings ajustados
+new_embeddings_matrix = torch.load('embeddings/adjusted_bert_embeddings.pt')
+
 app = FastAPI()
 app.predictor = load_model()
-
-df = load_data()
 
 @app.get("/hello")
 def read_hello():
@@ -37,6 +81,19 @@ def read_hello():
 def predict(X: str = Query(..., description="Input text for prediction")):
     result = app.predictor.predict(X)
     return {"input_value": X, "predicted_value": result, "message": "prediction successful"}
+
+def calculate_relevance(df, query):
+    query_embedding = get_bert_embedding(query.lower())
+    if query_embedding is None:
+        raise ValueError("Query embedding could not be generated.")
+    
+    query_embedding_reduced = autoencoder.encoder(query_embedding.unsqueeze(0)).detach()
+    
+    cosine_similarities = cosine_similarity(query_embedding_reduced, new_embeddings_matrix).squeeze()
+    
+    sorted_indices = torch.argsort(cosine_similarities, descending=True)
+    
+    return sorted_indices, cosine_similarities
 
 @app.get("/query")
 def query_route(query: str = Query(..., description="Search query")):
