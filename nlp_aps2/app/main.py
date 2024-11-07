@@ -101,7 +101,8 @@ def query_route(query: str = Query(..., description="Search query")):
     try:
         related_docs_indices, cosine_similarities = calculate_relevance(df, query)
         for idx in related_docs_indices[:10]:  # Top 10 documentos
-            if cosine_similarities[idx] > 0.11:  # Limite de similaridade
+            print(cosine_similarities[idx].item())
+            if cosine_similarities[idx].item() > 0.2:  # Limite de similaridade
                 # Garantir que os índices são inteiros ao acessar o DataFrame
                 idx = int(idx)  # Converter para inteiro
                 cosine_similarity_value = cosine_similarities[idx].item()  # Garantir que o valor seja float
